@@ -147,7 +147,7 @@ def backupFacetrack(connection):
                 print('Insert error!')
                 continue
         sqliteConn.commit()
-        print('%s backup successful...' % dynamic_facetrack_table_name)
+        print('%s [%s] backup successful...' % (dynamic_facetrack_table_name, query_rows))
     return True
 
 def backupFacetrackBgImgs(connection):
@@ -168,7 +168,7 @@ def backupFacetrackBgImgs(connection):
                 print('Insert error!')
                 continue
         sqliteConn.commit()
-        print('%s backup successful...' % dynamic_facetrack_bg_imgs_table_name)
+        print('%s [%s] backup successful...' % (dynamic_facetrack_bg_imgs_table_name, query_rows))
     return True
 
 def backupFacetrackImgs(connection):
@@ -192,7 +192,7 @@ def backupFacetrackImgs(connection):
                 print('Insert error!')
                 continue
         sqliteConn.commit()
-        print('%s backup successful...' % dynamic_facetrack_imgs_table_name)
+        print('%s [%s] backup successful...' % (dynamic_facetrack_imgs_table_name, query_rows))
     return True
 
 def backupPerson(connection):
@@ -215,7 +215,7 @@ def backupPerson(connection):
                 print('Insert error!')
                 continue
         sqliteConn.commit()
-        print('%s backup successful...' % dynamic_person_table_name)
+        print('%s [%s] backup successful...' % (dynamic_person_table_name, query_rows)
     return True
 
 def backupPersonImgs(connection):
@@ -240,7 +240,7 @@ def backupPersonImgs(connection):
                 print('Insert error!')
                 continue
         sqliteConn.commit()
-        print('%s backup successful...' % dynamic_person_imgs_table_name)
+        print('%s [%s] backup successful...' % (dynamic_person_imgs_table_name, query_rows))
     return True
 
 def createFacedetReplica():
