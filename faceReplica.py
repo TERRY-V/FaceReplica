@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import datetime
 import os
 import signal
 import sys
@@ -97,7 +98,23 @@ class MysqlPool(object):
             conn.close()
         return None
 
+class Timer(object):
+    def __init__(self):
+        self.startTime = None
+        self.endTime = None
+
+    def start(self):
+        self.startTime = datetime.datetime.now()
+
+    def stop(self):
+        self.endTime = datetime.datetime.now()
+
+    def elapsed_seconds(self):
+        return (self.endTime - self.startTime).seconds
+
 serialNumberList = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f']
+startTime = '1970-01-01 00:00:00'
+endTime = None
 
 sqliteConn = None
 sqliteCursor = None
@@ -112,7 +129,7 @@ def initializeSQLite():
     global sqliteConn
     global sqliteCursor
 
-    sqliteConn = sqlite3.connect('facedet_%s_%s_%s.db' % (settings.appKey, settings.startTime[0:10], settings.endTime[0:10]))
+    sqliteConn = sqlite3.connect('facedet_%s_%s_%s.db' % (settings.appKey, startTime[0:10], endTime[0:10]))
     sqliteCursor = sqliteConn.cursor()
 
     sqliteCursor.execute('''CREATE TABLE IF NOT EXISTS facetrack(uuid, matched_uuid, matched_ratio, state, person_uuid, descriptor, isdeleted, createdate, acked, src_id)''')
@@ -142,15 +159,12 @@ def backupFacetrack(connection):
                 '`src_id` ' \
                 'FROM %s ' \
                 'WHERE createdate >= \'%s\' and createdate <= \'%s\' LIMIT %s, %s' % \
-                (dynamic_facetrack_table_name, settings.startTime, settings.endTime, start, step))
-            print('Fetched %s rows...' % (query_rows))
-            for data in connection.fetchAll():
-                try:
-                    sqliteCursor.execute("INSERT INTO facetrack VALUES(?,?,?,?,?,?,?,?,?,?)", \
-                        (data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9]))
-                except sqlite3.IntegrityError:
-                    print('Insert error!')
-                    continue
+                (dynamic_facetrack_table_name, startTime, endTime, start, step))
+            print('Fetched %s %s rows...' % (start, query_rows))
+            try:
+                sqliteCursor.executemany("INSERT INTO facetrack VALUES(?,?,?,?,?,?,?,?,?,?)", connection.fetchAll())
+            except sqlite3.IntegrityError:
+                print('Insert %s %s error!' % (start, query_rows))
             sqliteConn.commit()
             start = start + step
             if query_rows <> step:
@@ -165,21 +179,21 @@ def backupFacetrackBgImgs(connection):
         dynamic_facetrack_bg_imgs_table_name = 'facetrack_bg_imgs_%s_%s' % (settings.appKey, serialNumber)
         print('%s is backing up...' % (dynamic_facetrack_bg_imgs_table_name))
         while True:
+            timer = Timer()
+            timer.start()
             query_rows = connection.query('SELECT `uuid`, ' \
                 '`isdeleted`, ' \
                 '`createdate`, ' \
                 '`base64` ' \
                 'FROM %s ' \
                 'WHERE createdate >= \'%s\' and createdate <= \'%s\' LIMIT %s, %s' % \
-                (dynamic_facetrack_bg_imgs_table_name, settings.startTime, settings.endTime, start, step))
-            print('Fetched %s rows...' % (query_rows))
-            for data in connection.fetchAll():
-                try:
-                    sqliteCursor.execute("INSERT INTO facetrack_bg_imgs VALUES(?,?,?,?)", \
-                        (data[0], data[1], data[2], data[3]))
-                except sqlite3.IntegrityError:
-                    print('Insert error!')
-                    continue
+                (dynamic_facetrack_bg_imgs_table_name, startTime, endTime, start, step))
+            timer.stop()
+            print('Fetched %s %s rows, which elapsed %s seconds...' % (start, query_rows, timer.elapsed_seconds()))
+            try:
+                sqliteCursor.executemany("INSERT INTO facetrack_bg_imgs VALUES(?,?,?,?)", connection.fetchAll())
+            except sqlite3.IntegrityError:
+                print('Insert %s %s error!' % (start, query_rows))
             sqliteConn.commit()
             start = start + step
             if query_rows <> step:
@@ -194,6 +208,9 @@ def backupFacetrackImgs(connection):
         dynamic_facetrack_imgs_table_name = 'facetrack_imgs_%s_%s' % (settings.appKey, serialNumber)
         print('%s is backing up...' % (dynamic_facetrack_imgs_table_name))
         while True:
+            timer = Timer()
+
+            timer.start()
             query_rows = connection.query('SELECT `uuid`, ' \
                 '`img_path`, ' \
                 '`type`, ' \
@@ -203,15 +220,13 @@ def backupFacetrackImgs(connection):
                 '`base64` ' \
                 'FROM %s ' \
                 'WHERE createdate >= \'%s\' and createdate <= \'%s\' LIMIT %s, %s' % \
-                (dynamic_facetrack_imgs_table_name, settings.startTime, settings.endTime, start, step))
-            print('Fetched %s rows...' % (query_rows))
-            for data in connection.fetchAll():
-                try:
-                    sqliteCursor.execute("INSERT INTO facetrack_imgs VALUES(?,?,?,?,?,?,?)", \
-                        (data[0], data[1], data[2], data[3], data[4], data[5], data[6]))
-                except sqlite3.IntegrityError:
-                    print('Insert error!')
-                    continue
+                (dynamic_facetrack_imgs_table_name, startTime, endTime, start, step))
+            timer.stop()
+            print('Fetched %s %s rows, which elapsed %s seconds...' % (start, query_rows, timer.elapsed_seconds()))
+            try:
+                sqliteCursor.executemany("INSERT INTO facetrack_imgs VALUES(?,?,?,?,?,?,?)", connection.fetchAll())
+            except sqlite3.IntegrityError:
+                print('Insert %s %s error!' % (start, query_rows))
             sqliteConn.commit()
             start = start + step
             if query_rows <> step:
@@ -234,15 +249,12 @@ def backupPerson(connection):
                 '`acked` ' \
                 'FROM %s ' \
                 'WHERE createdate >= \'%s\' and createdate <= \'%s\' LIMIT %s, %s' % \
-                (dynamic_person_table_name, settings.startTime, settings.endTime, start, step))
-            print('Fetched %s rows...' % (query_rows))
-            for data in connection.fetchAll():
-                try:
-                    sqliteCursor.execute("INSERT INTO person VALUES(?,?,?,?,?,?)", \
-                        (data[0], data[1], data[2], data[3], data[4], data[5]))
-                except sqlite3.IntegrityError:
-                    print('Insert error!')
-                    continue
+                (dynamic_person_table_name, startTime, endTime, start, step))
+            print('Fetched %s %s rows...' % (start, query_rows))
+            try:
+                sqliteCursor.executemany("INSERT INTO person VALUES(?,?,?,?,?,?)", connection.fetchAll())
+            except sqlite3.IntegrityError:
+                print('Insert %s %s error!' % (start, query_rows))
             sqliteConn.commit()
             start = start + step
             if query_rows <> step:
@@ -267,15 +279,12 @@ def backupPersonImgs(connection):
                 '`uuid_facetrack` ' \
                 'FROM %s ' \
                 'WHERE createdate >= \'%s\' and createdate <= \'%s\' LIMIT %s, %s' % \
-                (dynamic_person_imgs_table_name, settings.startTime, settings.endTime, start, step))
-            print('Fetched %s rows...' % (query_rows))
-            for data in connection.fetchAll():
-                try:
-                    sqliteCursor.execute("INSERT INTO person_imgs VALUES(?,?,?,?,?,?,?,?)", \
-                        (data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]))
-                except sqlite3.IntegrityError:
-                    print('Insert error!')
-                    continue
+                (dynamic_person_imgs_table_name, startTime, endTime, start, step))
+            print('Fetched %s %s rows...' % (start, query_rows))
+            try:
+                sqliteCursor.executemany("INSERT INTO person_imgs VALUES(?,?,?,?,?,?,?,?)", connection.fetchAll())
+            except sqlite3.IntegrityError:
+                print('Insert %s %s error!' % (start, query_rows))
             sqliteConn.commit()
             start = start + step
             if query_rows <> step:
@@ -491,6 +500,8 @@ def main():
 
     parser = argparse.ArgumentParser("faceReplica")
     parser.add_argument('-b', action='store_true', dest='backupFlag', help='backup facedet database')
+    parser.add_argument('-s', action='store', dest='startTime', help='backup start time')
+    parser.add_argument('-e', action='store', dest='endTime', help='backup end time')
     parser.add_argument('-r', action='store', dest='dbName', help='recover data from database file')
     parser.add_argument('--verbose', action='store_true', dest='verboseMode', help='Verbose mode')
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
@@ -500,7 +511,15 @@ def main():
         settings.DEBUG = True
 
     if args.backupFlag == True:
-        createFacedetReplica()
+        global startTime
+        global endTime
+
+        if args.startTime and args.endTime:
+            startTime = args.startTime
+            endTime = args.endTime
+            createFacedetReplica()
+        else:
+            parser.print_help()
     elif args.dbName:
         recoveryFacedetReplica(args.dbName)
     else:
